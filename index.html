@@ -1,0 +1,309 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>메르카토르 도법 탐구 시뮬레이터</title>
+<style>
+:root{--bg:#f4f7fb;--card:#fff;--ink:#172033;--muted:#667085;--line:#e2e8f0;--teal:#0d9488;--amber:#d97706;--blue:#6478d3}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--ink);font-family:system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;line-height:1.55}
+header{background:linear-gradient(135deg,#123b54,#0d9488);color:white;padding:34px 20px 30px}
+.wrap{max-width:1050px;margin:auto;padding:0 18px}header .eyebrow{font-size:.82rem;letter-spacing:.08em;text-transform:uppercase;opacity:.85}h1{font-size:clamp(1.7rem,4vw,2.5rem);line-height:1.2;margin:.45rem 0 .7rem}header p{max-width:740px;margin:0;color:#e5f7f5}
+main{padding:24px 0 50px}.layout{display:grid;grid-template-columns:1fr 1fr;gap:18px}.card{background:var(--card);border:1px solid var(--line);border-radius:18px;padding:22px;box-shadow:0 5px 20px #18324a08}.wide{grid-column:1/-1}h2{font-size:1.15rem;margin:0 0 14px}h3{font-size:1rem;margin:0 0 8px}.muted{color:var(--muted);font-size:.91rem}.latrow{display:flex;justify-content:space-between;align-items:center;gap:12px}.latvalue{font-size:2rem;font-weight:750;color:var(--teal);font-variant-numeric:tabular-nums}input[type=range]{width:100%;accent-color:var(--teal);margin:18px 0 4px}.ticks{display:flex;justify-content:space-between;color:var(--muted);font-size:.78rem}.presets{display:flex;flex-wrap:wrap;gap:8px;margin-top:16px}.presets button,.reset{border:1px solid var(--line);background:#fff;color:var(--ink);padding:8px 12px;border-radius:10px;cursor:pointer;font:inherit}.presets button:hover,.reset:hover{border-color:var(--teal);background:#effcf9}.formula{font-family:Georgia,"Times New Roman",serif;background:#f7fafc;border-radius:10px;padding:12px 14px;margin:12px 0;font-size:1.08rem;overflow-wrap:anywhere}.metrics{display:grid;grid-template-columns:repeat(3,1fr);gap:10px}.metric{background:#f8fafc;border:1px solid var(--line);border-radius:13px;padding:13px}.metric .label{font-size:.8rem;color:var(--muted);min-height:2.5em}.metric .number{font-size:1.45rem;font-weight:750;font-variant-numeric:tabular-nums;margin-top:4px}.unit{font-size:.8rem;font-weight:500;color:var(--muted)}.chartwrap{width:100%;overflow:hidden}svg{display:block;width:100%;height:auto}.legend{display:flex;gap:16px;flex-wrap:wrap;font-size:.85rem;color:var(--muted);margin-top:8px}.dot{display:inline-block;width:10px;height:10px;border-radius:50%;margin-right:6px}.interpret{border-left:4px solid var(--teal);padding:12px 14px;background:#f0fdfa;border-radius:0 10px 10px 0}.tablewrap{overflow-x:auto}table{width:100%;border-collapse:collapse;font-variant-numeric:tabular-nums}th,td{text-align:right;padding:10px;border-bottom:1px solid var(--line);white-space:nowrap}th:first-child,td:first-child{text-align:left}th{font-size:.83rem;color:var(--muted);font-weight:650}tr.active{background:#effcf9;font-weight:700}footer{padding:0 0 32px;text-align:center;color:var(--muted);font-size:.82rem}
+@media(max-width:760px){.layout{grid-template-columns:1fr}.wide{grid-column:auto}.metrics{grid-template-columns:1fr}.metric{display:flex;align-items:center;justify-content:space-between;gap:10px}.metric .label{min-height:0}.metric .number{margin:0}header{padding-top:26px}}
+
+.map-controls{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px}
+.map-controls button{border:1px solid var(--line);background:#fff;padding:9px 14px;border-radius:10px;cursor:pointer;font:inherit}
+.map-controls button.selected{background:#e6fffb;border-color:var(--teal);color:#0f766e;font-weight:700}
+.map-stage{border:1px solid var(--line);border-radius:14px;overflow:hidden;background:#f8fbff}
+#earthCanvas{display:block;width:100%;height:auto;touch-action:none;cursor:grab}
+#earthCanvas.dragging{cursor:grabbing}
+.map-help{font-size:.88rem;color:var(--muted);margin:10px 0 0}
+.projection-control{margin:12px 2px 16px;padding:12px 14px;background:#f8fafc;border:1px solid var(--line);border-radius:12px}
+.projection-labels{display:flex;justify-content:space-between;align-items:center;gap:8px;font-size:.9rem}
+.projection-control input[type=range]{display:block;width:100%;margin:8px 0 0;cursor:ew-resize}
+.projection-control p{margin:3px 0 0}
+
+</style>
+</head>
+<body>
+<header><div class="wrap"><div class="eyebrow">Calculus × Navigation</div><h1>메르카토르 도법 탐구 시뮬레이터</h1><p>위도를 바꾸며 sec 함수의 정적분, 메르카토르 세로 좌표, 위도별 확대율의 관계를 직접 확인해 보세요.</p></div></header>
+<main class="wrap">
+<div class="layout">
+<section class="card">
+<h2>1. 위도 설정</h2>
+<div class="latrow"><label for="latitude">현재 위도 φ</label><div class="latvalue"><span id="latText">60</span>°</div></div>
+<input id="latitude" type="range" min="0" max="80" step="1" value="60" aria-label="위도 설정">
+<div class="ticks"><span>0° · 적도</span><span>20°</span><span>40°</span><span>60°</span><span>80°</span></div>
+<div class="presets"><button data-lat="0">0°</button><button data-lat="30">30°</button><button data-lat="45">45°</button><button data-lat="60">60°</button><button data-lat="75">75°</button></div>
+<p class="muted">극점 90°에서는 sec φ와 메르카토르 세로 좌표가 발산하므로 모형은 80°까지 표시합니다.</p>
+</section>
+<section class="card">
+<h2>2. 수학적 원리</h2>
+<div class="formula">k(φ) = sec φ = 1 / cos φ</div>
+<p>위도 φ에서의 국소 확대율입니다. 위도가 높아질수록 값이 커집니다.</p>
+<div class="formula">y(φ) = ∫₀ᵠ sec θ dθ</div>
+<div class="formula">y(φ) = ln |sec φ + tan φ|</div>
+<p class="muted">φ와 θ는 공식에서 라디안 단위로 계산합니다. y는 지구 반지름으로 나눈 정규화 세로 좌표입니다.</p>
+</section>
+<section class="card wide">
+<h2>3. 현재 위도에서 계산된 값</h2>
+<div class="metrics">
+<div class="metric"><div class="label">정규화 세로 좌표 y(φ)</div><div class="number" id="yValue">1.31696</div></div>
+<div class="metric"><div class="label">국소 확대율 sec φ</div><div class="number" id="scaleValue">2.000<span class="unit"> 배</span></div></div>
+<div class="metric"><div class="label">평균 세로 확대율 y / φ</div><div class="number" id="avgValue">1.258<span class="unit"> 배</span></div></div>
+</div>
+<p class="muted" id="meaning">정적분값은 지도상의 정규화 좌표이며, 그 자체가 확대율을 뜻하지 않습니다.</p>
+</section>
+<section class="card wide">
+<h2>4. 위도에 따른 세로 좌표 변화</h2>
+<div class="chartwrap"><svg id="coordChart" viewBox="0 0 760 330" role="img" aria-label="위도와 메르카토르 세로 좌표 그래프"></svg></div>
+<div class="legend"><span><i class="dot" style="background:#0d9488"></i>y(φ) 세로 좌표</span><span><i class="dot" style="background:#d97706"></i>선택한 위도</span></div>
+<p class="muted">곡선의 기울기는 해당 위도에서의 국소 확대율 sec φ를 반영합니다. 고위도로 갈수록 세로 좌표가 더 빠르게 증가합니다.</p>
+</section>
+<section class="card">
+<h2>5. 위도별 확대율 비교</h2>
+<h3>국소 확대율</h3><div class="formula" id="localFormula">sec 60° = 2.000</div>
+<div style="height:10px;background:#edf2f7;border-radius:20px;overflow:hidden"><div id="localBar" style="height:100%;width:34.7%;background:#0d9488;border-radius:20px"></div></div>
+<p class="muted">현재 위도 한 지점에서의 확대율입니다.</p>
+<h3 style="margin-top:22px">평균 세로 확대율</h3><div class="formula" id="avgFormula">y(φ) / φ(rad) = 1.258</div>
+<div style="height:10px;background:#edf2f7;border-radius:20px;overflow:hidden"><div id="avgBar" style="height:100%;width:21.8%;background:#6478d3;border-radius:20px"></div></div>
+<p class="muted">적도부터 현재 위도까지 지도상의 세로 거리와 실제 자오선 거리의 비율입니다.</p>
+</section>
+<section class="card">
+<h2>6. 실시간 해석</h2>
+<div class="interpret" id="interpret">위도 60°에서는 국소 확대율이 2배입니다. 평균 세로 확대율과 구분해 해석해야 합니다.</div>
+<p class="muted" style="margin-top:14px">탐구 질문: 정적분값, 국소 확대율, 평균 세로 확대율은 각각 무엇을 의미할까요?</p>
+<button class="reset" id="reset">위도 60°로 초기화</button>
+</section>
+
+<section class="card wide">
+<h2>7. 3D 지구본 ↔ 평면 메르카토르 지도</h2>
+<p class="muted">아래 긴 막대의 손잡이를 좌우로 움직이면 지구본이 평면 메르카토르 지도로 점진적으로 바뀝니다. 지도 위의 주황색 점도 직접 드래그할 수 있습니다.</p>
+<div class="map-controls" role="group" aria-label="지도 표시 방식">
+  <button id="globeMode" class="selected" type="button">🌐 3D 지구본</button>
+  <button id="flatMode" type="button">▤ 평면 메르카토르 지도</button>
+</div>
+<div class="projection-control"><div class="projection-labels"><span>🌐 3D 지구본</span><strong id="projectionPercent">0% · 지구본</strong><span>▤ 평면 지도</span></div><input id="projectionSlider" type="range" min="0" max="100" value="0" step="1" aria-label="지구본에서 평면 메르카토르 지도로 전환"><p class="muted">손잡이를 가로 방향으로만 움직여 보세요.</p></div>
+<div class="map-stage"><canvas id="earthCanvas" width="900" height="470" aria-label="드래그할 수 있는 지구본 또는 메르카토르 지도"></canvas></div>
+<div class="metrics" style="margin-top:12px">
+  <div class="metric"><div class="label">선택 지점 위도</div><div class="number" id="pointLat">60.0°</div></div>
+  <div class="metric"><div class="label">선택 지점 경도</div><div class="number" id="pointLon">0.0°</div></div>
+  <div class="metric"><div class="label">표시 모드</div><div class="number" id="modeLabel" style="font-size:1.1rem">3D 지구본</div></div>
+</div>
+<p class="map-help" id="mapHelp">사용법: 지구본 표면의 주황색 점을 누른 채 드래그하세요. 지구본 뒤쪽은 보이지 않으며, 점을 놓으면 위도 값과 계산 결과가 갱신됩니다.</p>
+</section>
+
+<section class="card wide">
+<h2>8. 수치 비교표</h2>
+<p class="muted">주요 위도에서의 값을 계산해 비교합니다. 선택한 위도는 표에서 강조됩니다.</p>
+<div class="tablewrap"><table><thead><tr><th>위도</th><th>정규화 세로 좌표 y</th><th>국소 확대율 sec φ</th><th>평균 세로 확대율</th></tr></thead><tbody id="dataTable"></tbody></table></div>
+</section>
+<section class="card wide">
+<h2>결과 해석 시 주의할 점</h2>
+<ul>
+<li><b>정적분값 y(φ)</b>는 적도부터 해당 위도까지의 정규화된 지도 세로 좌표입니다.</li>
+<li><b>국소 확대율 sec φ</b>는 특정 위도에서의 미소한 거리 확대 비율입니다.</li>
+<li><b>평균 세로 확대율</b>은 지도상의 세로 거리 y와 실제 자오선 각거리 φ(라디안)의 비율입니다. 적도에서는 극한값 1을 사용합니다.</li>
+<li>메르카토르 도법은 각도 관계를 보존하지만 면적과 거리를 왜곡합니다. 이 모형은 구면 지구를 가정한 이상화된 수학 모형입니다.</li>
+</ul>
+</section>
+</div>
+</main>
+<footer class="wrap">미적분 자유주제탐구 · 삼각함수 정적분 기반 메르카토르 도법 해석 및 시각화</footer>
+<script>
+const slider=document.getElementById('latitude');
+const rad=d=>d*Math.PI/180;
+function vals(deg){const p=rad(deg);const c=Math.cos(p);const t=Math.tan(p);const y=Math.log(1/c+t);const k=1/c;const avg=deg===0?1:y/p;return {y,k,avg};}
+function fmt(n,d=3){return Number(n).toFixed(d)}
+function drawChart(deg){
+ const svg=document.getElementById('coordChart'), W=760,H=330,L=58,R=18,T=20,B=45,plotW=W-L-R,plotH=H-T-B,maxY=vals(80).y;
+ const X=x=>L+x/80*plotW,Y=y=>T+plotH-y/maxY*plotH;
+ let s='';
+ for(let i=0;i<=4;i++){let v=maxY*i/4,yy=Y(v);s+=`<line x1="${L}" y1="${yy}" x2="${W-R}" y2="${yy}" stroke="#e2e8f0"/><text x="${L-10}" y="${yy+4}" font-size="11" fill="#667085" text-anchor="end">${v.toFixed(1)}</text>`}
+ [0,20,40,60,80].forEach(x=>{let xx=X(x);s+=`<line x1="${xx}" y1="${T}" x2="${xx}" y2="${H-B}" stroke="#eef2f7"/><text x="${xx}" y="${H-B+22}" font-size="11" fill="#667085" text-anchor="middle">${x}°</text>`});
+ let points=[];for(let d=0;d<=80;d++){points.push(`${X(d)},${Y(vals(d).y)}`)}
+ s+=`<polyline points="${points.join(' ')}" fill="none" stroke="#0d9488" stroke-width="3" stroke-linejoin="round"/>`;
+ const v=vals(deg),xx=X(deg),yy=Y(v.y);
+ s+=`<line x1="${xx}" y1="${yy}" x2="${xx}" y2="${H-B}" stroke="#d97706" stroke-dasharray="5 4" stroke-width="2"/><circle cx="${xx}" cy="${yy}" r="6" fill="#d97706" stroke="white" stroke-width="2"/>`;
+ let labelX=xx>W-130?xx-12:xx+12,anchor=xx>W-130?'end':'start',labelY=Math.max(T+14,yy-12);
+ s+=`<text x="${labelX}" y="${labelY}" font-size="12" font-weight="700" fill="#b45309" text-anchor="${anchor}">${deg}° · ${fmt(v.y,3)}</text>`;
+ s+=`<text x="${L+plotW/2}" y="${H-7}" font-size="12" fill="#475569" text-anchor="middle">위도 φ (도)</text><text x="14" y="${T+plotH/2}" font-size="12" fill="#475569" transform="rotate(-90 14 ${T+plotH/2})" text-anchor="middle">세로 좌표 y</text>`;
+ svg.innerHTML=s;
+}
+function update(){
+ const d=Number(slider.value),v=vals(d);document.getElementById('latText').textContent=d;
+ document.getElementById('yValue').textContent=fmt(v.y,5);
+ document.getElementById('scaleValue').innerHTML=`${fmt(v.k,3)}<span class="unit"> 배</span>`;
+ document.getElementById('avgValue').innerHTML=`${fmt(v.avg,3)}<span class="unit"> 배</span>`;
+ document.getElementById('localFormula').textContent=`sec ${d}° = ${fmt(v.k,3)}`;
+ document.getElementById('avgFormula').textContent=`y(φ) / φ(rad) = ${fmt(v.avg,3)}`;
+ document.getElementById('localBar').style.width=`${Math.min(100,v.k/5.76*100)}%`;
+ document.getElementById('avgBar').style.width=`${Math.min(100,v.avg/5.76*100)}%`;
+ let msg=d===0?'적도에서는 국소 확대율이 1이며 정규화 세로 좌표는 0입니다. 평균 확대율은 적도에서의 극한값 1로 표시합니다.':d<30?'저위도에서는 확대율이 비교적 완만하게 증가합니다. 정적분은 각 위도에서의 확대율을 적도부터 누적한 세로 좌표를 나타냅니다.':d<60?'위도가 높아지면서 국소 확대율이 커지고 세로 좌표 곡선의 기울기도 증가합니다. 정적분값과 확대율은 서로 다른 물리적 의미를 가집니다.':'고위도에서는 국소 확대율이 빠르게 커집니다. 정적분값은 누적된 세로 좌표이며, 국소 확대율이나 실제 길이의 배수와 동일하지 않습니다.';
+ document.getElementById('interpret').textContent=`위도 ${d}°: ${msg}`;
+ drawChart(d);
+ if(typeof drawInteractiveMap==='function'){drawInteractiveMap();}
+ const tbody=document.getElementById('dataTable');tbody.innerHTML='';
+ [0,15,30,45,60,75,80].forEach(a=>{const z=vals(a);const tr=document.createElement('tr');if(a===d)tr.className='active';tr.innerHTML=`<td>${a}°${a===d?' ← 선택':''}</td><td>${fmt(z.y,5)}</td><td>${fmt(z.k,4)}배</td><td>${fmt(z.avg,4)}배</td>`;tbody.appendChild(tr)});
+}
+slider.addEventListener('input',update);
+document.querySelectorAll('[data-lat]').forEach(b=>b.addEventListener('click',()=>{slider.value=b.dataset.lat;update()}));
+document.getElementById('reset').addEventListener('click',()=>{slider.value=60;update()});
+
+// Interactive globe / Mercator map. Coordinates are shared between both views.
+let pointLat = 60, pointLon = 0, mapMode = 'globe', draggingPoint = false, projectionBlend = 0;
+const earthCanvas = document.getElementById('earthCanvas');
+const ctx = earthCanvas.getContext('2d');
+const globeBtn = document.getElementById('globeMode');
+const flatBtn = document.getElementById('flatMode');
+function normLon(lon){while(lon>180)lon-=360;while(lon< -180)lon+=360;return lon;}
+function canvasPoint(e){
+ const r=earthCanvas.getBoundingClientRect();
+ return {x:(e.clientX-r.left)*earthCanvas.width/r.width,y:(e.clientY-r.top)*earthCanvas.height/r.height};
+}
+function projectFlat(lon,lat){
+ const W=earthCanvas.width,H=earthCanvas.height,pad=42;
+ const x=pad+(lon+180)/360*(W-2*pad);
+ const maxLat=80*Math.PI/180, phi=Math.max(-80,Math.min(80,lat))*Math.PI/180;
+ const yMerc=Math.log(Math.tan(Math.PI/4+phi/2));
+ const yMax=Math.log(Math.tan(Math.PI/4+maxLat/2));
+ const y=H/2-yMerc/yMax*(H/2-pad);
+ return {x,y};
+}
+function projectGlobe(lon,lat){
+ const W=earthCanvas.width,H=earthCanvas.height,cx=W/2,cy=H/2,r=Math.min(H*0.40,W*0.27);
+ const la=lat*Math.PI/180,lo=lon*Math.PI/180;
+ // Orthographic globe centered at 0° longitude and 0° latitude.
+ const vis=Math.cos(la)*Math.cos(lo);
+ return {x:cx+r*Math.cos(la)*Math.sin(lo),y:cy-r*Math.sin(la),r,vis,cx,cy};
+}
+function drawGlobe(){
+ const W=earthCanvas.width,H=earthCanvas.height;
+ ctx.clearRect(0,0,W,H);ctx.fillStyle='#f8fbff';ctx.fillRect(0,0,W,H);
+ const g=projectGlobe(0,0),r=g.r,cx=g.cx,cy=g.cy;
+ // Ocean disk
+ const grad=ctx.createRadialGradient(cx-r*.35,cy-r*.4,r*.1,cx,cy,r*1.15);
+ grad.addColorStop(0,'#d8f3f5');grad.addColorStop(1,'#7fb8cf');
+ ctx.beginPath();ctx.arc(cx,cy,r,0,Math.PI*2);ctx.fillStyle=grad;ctx.fill();
+ ctx.save();ctx.beginPath();ctx.arc(cx,cy,r,0,Math.PI*2);ctx.clip();
+ // Latitude circles
+ ctx.strokeStyle='rgba(255,255,255,.9)';ctx.lineWidth=1.3;
+ for(let la=-60;la<=60;la+=30){
+   const y=cy-r*Math.sin(la*Math.PI/180),rx=r*Math.cos(la*Math.PI/180);
+   ctx.beginPath();ctx.ellipse(cx,y,rx,Math.max(2,rx*.12),0,0,Math.PI*2);ctx.stroke();
+ }
+ // Longitude ellipses
+ for(let lo=-75;lo<=75;lo+=25){
+   const rx=Math.abs(r*Math.sin((90-Math.abs(lo))*Math.PI/180));
+   const xoff=r*Math.sin(lo*Math.PI/180);
+   ctx.beginPath();ctx.ellipse(cx+xoff*.35,cy,Math.max(2,rx),r,0,0,Math.PI*2);ctx.stroke();
+ }
+ // Approximate continents as decorative silhouettes (schematic, not geographic data)
+ ctx.fillStyle='rgba(42,115,91,.68)';
+ function blob(points){ctx.beginPath();points.forEach((p,i)=>{const x=cx+p[0]*r,y=cy+p[1]*r;i?ctx.lineTo(x,y):ctx.moveTo(x,y)});ctx.closePath();ctx.fill();}
+ blob([[-.72,-.45],[-.55,-.63],[-.35,-.54],[-.25,-.35],[-.38,-.18],[-.48,.02],[-.42,.22],[-.55,.45],[-.66,.17],[-.72,-.1]]);
+ blob([[-.2,-.65],[.05,-.7],[.24,-.56],[.2,-.4],[.38,-.3],[.29,-.08],[.16,.03],[.23,.25],[.09,.48],[-.03,.34],[-.09,.08],[-.22,-.12],[-.15,-.34]]);
+ blob([[.25,-.53],[.48,-.58],[.69,-.38],[.62,-.18],[.43,-.12],[.36,.06],[.49,.22],[.39,.39],[.23,.22],[.18,-.02]]);
+ ctx.restore();
+ ctx.beginPath();ctx.arc(cx,cy,r,0,Math.PI*2);ctx.strokeStyle='#397c9c';ctx.lineWidth=2;ctx.stroke();
+ const pt=projectGlobe(pointLon,pointLat);
+ if(pt.vis>=0){
+   ctx.beginPath();ctx.arc(pt.x,pt.y,8,0,Math.PI*2);ctx.fillStyle='#d97706';ctx.fill();ctx.strokeStyle='#fff';ctx.lineWidth=3;ctx.stroke();
+   ctx.fillStyle='#172033';ctx.font='bold 16px system-ui';ctx.fillText(`${pointLat.toFixed(1)}°, ${pointLon.toFixed(1)}°`,Math.min(W-175,pt.x+14),Math.max(22,pt.y-12));
+ }else{
+   ctx.fillStyle='#172033';ctx.font='14px system-ui';ctx.textAlign='center';ctx.fillText('선택 지점은 지구본 뒤쪽에 있습니다.',W/2,H-24);ctx.textAlign='start';
+ }
+ ctx.fillStyle='#475569';ctx.font='13px system-ui';ctx.fillText('도식적 지구본 · 경위선은 개념 설명용',22,25);
+}
+function drawFlat(){
+ const W=earthCanvas.width,H=earthCanvas.height,pad=42;
+ ctx.clearRect(0,0,W,H);ctx.fillStyle='#f8fbff';ctx.fillRect(0,0,W,H);
+ // map frame
+ ctx.fillStyle='#e7f5f7';ctx.fillRect(pad,pad,W-2*pad,H-2*pad);
+ ctx.strokeStyle='#c3dce5';ctx.lineWidth=1;
+ for(let lon=-180;lon<=180;lon+=30){
+   const x=pad+(lon+180)/360*(W-2*pad);ctx.beginPath();ctx.moveTo(x,pad);ctx.lineTo(x,H-pad);ctx.stroke();
+ }
+ for(let lat=-80;lat<=80;lat+=20){
+   const p=projectFlat(0,lat);ctx.beginPath();ctx.moveTo(pad,p.y);ctx.lineTo(W-pad,p.y);ctx.stroke();
+ }
+ // Schematic land shapes placed in longitude/latitude coordinates.
+ ctx.fillStyle='rgba(42,115,91,.72)';
+ const continents=[
+ [[-165,70],[-125,72],[-95,55],[-80,25],[-105,8],[-120,25],[-140,48]],
+ [[-82,12],[-65,-5],[-50,-25],[-68,-55],[-78,-20]],
+ [[-10,70],[35,65],[65,45],[50,10],[30,-35],[12,-5],[-5,35]],
+ [[40,55],[100,70],[155,55],[145,20],[110,5],[80,25],[55,10]],
+ [[112,-12],[150,-10],[155,-40],[130,-45]],
+ [[-50,80],[-20,75],[-30,60],[-50,60]]
+ ];
+ for(const poly of continents){ctx.beginPath();poly.forEach((p,i)=>{const q=projectFlat(p[0],p[1]);i?ctx.lineTo(q.x,q.y):ctx.moveTo(q.x,q.y)});ctx.closePath();ctx.fill();}
+ ctx.strokeStyle='#397c9c';ctx.lineWidth=1.5;ctx.strokeRect(pad,pad,W-2*pad,H-2*pad);
+ // Labels
+ ctx.fillStyle='#475569';ctx.font='12px system-ui';ctx.textAlign='center';
+ for(let lon=-180;lon<=180;lon+=60){const x=pad+(lon+180)/360*(W-2*pad);ctx.fillText(`${lon}°`,x,H-pad+20)}
+ ctx.textAlign='left';for(let lat=-60;lat<=60;lat+=30){const q=projectFlat(0,lat);ctx.fillText(`${lat}°`,5,q.y+4)}
+ const pt=projectFlat(pointLon,pointLat);
+ ctx.beginPath();ctx.arc(pt.x,pt.y,8,0,Math.PI*2);ctx.fillStyle='#d97706';ctx.fill();ctx.strokeStyle='#fff';ctx.lineWidth=3;ctx.stroke();
+ ctx.fillStyle='#172033';ctx.font='bold 15px system-ui';ctx.fillText(`${pointLat.toFixed(1)}°, ${pointLon.toFixed(1)}°`,Math.min(W-170,pt.x+13),Math.max(22,pt.y-12));
+ ctx.textAlign='start';ctx.fillStyle='#475569';ctx.font='13px system-ui';ctx.fillText('메르카토르 좌표 · 위도 ±80° 범위',pad+8,25);
+}
+function drawInteractiveMap(){
+ // Capture both renderings, then blend pixels according to the horizontal slider.
+ drawGlobe(); const globePixels=ctx.getImageData(0,0,earthCanvas.width,earthCanvas.height);
+ drawFlat(); const flatPixels=ctx.getImageData(0,0,earthCanvas.width,earthCanvas.height);
+ const mixed=ctx.createImageData(earthCanvas.width,earthCanvas.height), a=globePixels.data,b=flatPixels.data,d=mixed.data,t=projectionBlend/100;
+ for(let i=0;i<d.length;i+=4){d[i]=a[i]*(1-t)+b[i]*t;d[i+1]=a[i+1]*(1-t)+b[i+1]*t;d[i+2]=a[i+2]*(1-t)+b[i+2]*t;d[i+3]=255;}
+ ctx.putImageData(mixed,0,0);
+ mapMode=projectionBlend<50?'globe':'flat';
+ document.getElementById('projectionPercent').textContent=projectionBlend===0?'0% · 지구본':projectionBlend===100?'100% · 평면 지도':`${projectionBlend}% · 전환 중`;
+ document.getElementById('pointLat').textContent=`${pointLat.toFixed(1)}°`;
+ document.getElementById('pointLon').textContent=`${pointLon.toFixed(1)}°`;
+ document.getElementById('modeLabel').textContent=mapMode==='globe'?'3D 지구본':'평면 지도';
+ document.getElementById('mapHelp').textContent=mapMode==='globe'?'사용법: 지구본 앞면의 주황색 점을 누른 채 드래그하세요. 뒤쪽으로 이동하면 지구본 뒤에 있어 점이 보이지 않을 수 있습니다.':'사용법: 평면 지도에서 주황색 점을 좌우·상하로 드래그하세요. 위도는 ±80°로 제한되며 좌표와 적분 계산이 함께 갱신됩니다.';
+ globeBtn.classList.toggle('selected',mapMode==='globe');flatBtn.classList.toggle('selected',mapMode==='flat');
+}
+function setPoint(lat,lon){
+ pointLat=Math.max(-80,Math.min(80,lat));pointLon=normLon(lon);
+ // Main calculus slider models northern latitude; keep its absolute value in sync.
+ slider.value=Math.round(Math.abs(pointLat));update();
+}
+function nearestPoint(pos){
+ if(mapMode==='flat'){const p=projectFlat(pointLon,pointLat);return Math.hypot(pos.x-p.x,pos.y-p.y)<28;}
+ const p=projectGlobe(pointLon,pointLat);return p.vis>=0&&Math.hypot(pos.x-p.x,pos.y-p.y)<30;
+}
+earthCanvas.addEventListener('pointerdown',e=>{
+ const pos=canvasPoint(e);
+ if(nearestPoint(pos)){draggingPoint=true;earthCanvas.classList.add('dragging');earthCanvas.setPointerCapture(e.pointerId);e.preventDefault();}
+});
+earthCanvas.addEventListener('pointermove',e=>{
+ if(!draggingPoint)return;const pos=canvasPoint(e),W=earthCanvas.width,H=earthCanvas.height;
+ if(mapMode==='flat'){
+   const pad=42;const lon=(pos.x-pad)/(W-2*pad)*360-180;
+   // Invert Mercator y coordinate to latitude.
+   const yMax=Math.log(Math.tan(Math.PI/4+80*Math.PI/180/2));
+   const merc=(H/2-pos.y)/(H/2-pad)*yMax;
+   const lat=(2*Math.atan(Math.exp(merc))-Math.PI/2)*180/Math.PI;
+   setPoint(lat,lon);
+ }else{
+   const g=projectGlobe(0,0),dx=(pos.x-g.cx)/g.r,dy=(g.cy-pos.y)/g.r,r2=dx*dx+dy*dy;
+   if(r2<=1){
+     const z=Math.sqrt(1-r2);
+     const lat=Math.asin(Math.max(-1,Math.min(1,dy)))*180/Math.PI;
+     const lon=Math.atan2(dx,z)*180/Math.PI;
+     setPoint(lat,lon);
+   }
+ }
+});
+function stopDrag(){draggingPoint=false;earthCanvas.classList.remove('dragging')}
+earthCanvas.addEventListener('pointerup',stopDrag);earthCanvas.addEventListener('pointercancel',stopDrag);
+const projectionSlider=document.getElementById('projectionSlider');
+projectionSlider.addEventListener('input',()=>{projectionBlend=Number(projectionSlider.value);drawInteractiveMap()});
+globeBtn.addEventListener('click',()=>{projectionBlend=0;projectionSlider.value=0;drawInteractiveMap()});
+flatBtn.addEventListener('click',()=>{projectionBlend=100;projectionSlider.value=100;drawInteractiveMap()});
+slider.addEventListener('input',()=>{pointLat=Number(slider.value);drawInteractiveMap()});
+update();
+drawInteractiveMap();
+</script>
+</body></html>
